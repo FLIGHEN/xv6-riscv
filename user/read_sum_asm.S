@@ -31,6 +31,9 @@ buf:
     .space MAX
 
     .section .text
+
+    .extern fprintf
+
     .globl main
 main:
     addi sp, sp, -32
@@ -167,50 +170,63 @@ cis_fail:
     li   a0, 0
     ret
 
+print_err:
+    addi sp, sp, -16
+    sd   ra, 8(sp)
+    sd   a0, 0(sp)
+
+    li   a0, 2          
+    ld   a1, 0(sp)    
+    call fprintf       
+
+    ld   ra, 8(sp)
+    addi sp, sp, 16
+    ret
+
 input_empty:
     la   a0, msg_empty
-    call printf
+    call print_err
     li   a0, 1
     call exit
 
 spaces_gt1:
     la   a0, msg_spaces_gt1
-    call printf
+    call print_err
     li   a0, 1
     call exit
 
 spaces_eq0:
     la   a0, msg_spaces_eq0
-    call printf
+    call print_err
     li   a0, 1
     call exit
 
 no_first:
     la   a0, msg_no_first
-    call printf
+    call print_err
     li   a0, 1
     call exit
 
 no_second:
     la   a0, msg_no_second
-    call printf
+    call print_err
     li   a0, 1
     call exit
 
 first_not_num:
     la   a0, msg_first_not_num
-    call printf
+    call print_err
     li   a0, 1
     call exit
 
 second_not_num:
     la   a0, msg_second_not_num
-    call printf
+    call print_err
     li   a0, 1
     call exit
 
 overflow:
     la   a0, msg_overflow
-    call printf
+    call print_err
     li   a0, 1
     call exit

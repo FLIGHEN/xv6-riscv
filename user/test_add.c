@@ -4,7 +4,7 @@
 int main(int argc, char **argv)
 {
   if(argc != 3){
-    printf("error: usage - test_add a b\n");
+    fprintf(2, "error: usage - test_add a b\n");
     exit(1);
   }
 
@@ -13,7 +13,7 @@ int main(int argc, char **argv)
 
   int res = add(a, b);
   if(res < 0){
-    printf("error: sys_add failed\n");
+    fprintf(2, "error: sys_add failed\n");
     exit(1);
   }
 
