@@ -8,6 +8,13 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct mutex;
+
+int mutexalloc(struct file **f);
+void mutexclose(struct mutex *m);
+int mutexlock(struct file *f);
+int mutexunlock(struct file *f);
+void mutexunlockifheld(struct file *f);
 
 // bio.c
 void            binit(void);
