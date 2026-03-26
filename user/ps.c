@@ -2,6 +2,19 @@
 #include "kernel/procinfo.h"
 #include "user/user.h"
 
+char* 
+state_to_str(int state){
+  switch(state){
+    case UNUSED: return "UNUSED";
+    case USED: return "USED";
+    case SLEEPING: return "SLEEPING";
+    case RUNNABLE: return "RUNNABLE";
+    case RUNNING: return "RUNNING";
+    case ZOMBIE: return "ZOMBIE";
+    default: return "UNKNOWN";
+  }
+}
+
 int
 main(void)
 {
@@ -42,12 +55,12 @@ main(void)
   for(int i = 0; i < res_count; i++){
     if(buf[i].ppid != 0)
     {
-      printf("  pid=%d ppid=%d state=%d name=%s pname=%s\n",
-           buf[i].pid, buf[i].ppid, buf[i].state, buf[i].name, buf[i].pname);
+      printf("  pid=%d ppid=%d state=%s name=%s pname=%s\n",
+           buf[i].pid, buf[i].ppid, state_to_str(buf[i].state), buf[i].name, buf[i].pname);
     }
     else{
-      printf("  pid=%d ppid=%d state=%d name=%s\n",
-            buf[i].pid, buf[i].ppid, buf[i].state, buf[i].name);
+      printf("  pid=%d ppid=%d state=%s name=%s\n",
+            buf[i].pid, buf[i].ppid, state_to_str(buf[i].state), buf[i].name);
     }
   }
 

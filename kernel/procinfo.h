@@ -1,6 +1,8 @@
 #ifndef _PROCINFOH
 #define _PROCINFOH
 
+enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+
 struct procinfo {
   int pid;
   int ppid;

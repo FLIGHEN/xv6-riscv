@@ -705,21 +705,9 @@ ps_listinfo(uint64 uaddr, int lim)
 	int proc_count = 0;
 
 	for(p = proc; p < &proc[NPROC]; p++){
-		acquire(&p->lock);
-		
-		if(p->state != UNUSED){
-			proc_count++;
-		}
+    struct procinfo pri;
+    struct proc *parent;
 
-		release(&p->lock);
-	}
-
-	if(addinfo == 0 || proc_count > lim)
-		return proc_count;
-
-	proc_count = 0;
-
-	for(p = proc; p < &proc[NPROC]; p++){
 		acquire(&wait_lock);
 		acquire(&p->lock);
 
@@ -728,44 +716,46 @@ ps_listinfo(uint64 uaddr, int lim)
 			release(&wait_lock);
       continue;
 		}
-		
-		if(proc_count >= lim){
-			release(&p->lock);
-     	release(&wait_lock);
- 	    return proc_count + 1;
-		}
 
-		struct procinfo pri;
-		struct proc *parent;
+    if(addinfo == 1){
 
-		pri.state = p->state;
-		pri.pid = p->pid;
-		
-		parent = p->parent;
-		if(parent != 0){
-      safestrcpy(pri.pname, parent->name, sizeof(pri.name));
-			pri.ppid = parent->pid;
+      if(proc_count >= lim){
+        release(&p->lock);
+        release(&wait_lock);
+        return proc_count + 1;
+      }
+
+      pri.state = p->state;
+      pri.pid = p->pid;
+      
+      parent = p->parent;
+      if(parent != 0){
+        safestrcpy(pri.pname, parent->name, sizeof(pri.pname));
+        pri.ppid = parent->pid;
+      }
+      else{
+        pri.ppid = 0;
+      }
+
+      safestrcpy(pri.name, p->name, sizeof(pri.name));
     }
-		else{
-			pri.ppid = 0;
+
+    release(&p->lock);
+    release(&wait_lock);
+  
+    if(addinfo == 1){
+      if(copyout(
+            myproc()->pagetable,
+            uaddr + proc_count * sizeof(struct procinfo),
+            (char *)&pri,
+            sizeof(pri)) == -1){
+
+        return -1;
+      }
     }
 
-		safestrcpy(pri.name, p->name, sizeof(pri.name));
-
-		release(&p->lock);
-		release(&wait_lock);
-
-		if(copyout(
-					myproc()->pagetable,
-					uaddr + proc_count * sizeof(struct procinfo),
-					(char *)&pri,
-					sizeof(pri)) == -1){
-
-			return -1;
-		}
-		
-		proc_count++;
-	}
+    proc_count++;
+  }
 	
 	return proc_count; 
 }
