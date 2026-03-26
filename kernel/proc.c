@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "procinfo.h"
 
 struct cpu cpus[NCPU];
 
@@ -687,4 +688,74 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int
+ps_listinfo(uint64 uaddr, int lim)
+{
+	if(lim < 0)
+		return -1;
+
+	int addinfo = 1;
+	if(uaddr == 0)
+		addinfo = 0;
+
+	struct proc *p;
+
+	int proc_count = 0;
+
+	for(p = proc; p < &proc[NPROC]; p++){
+    struct procinfo pri;
+    struct proc *parent;
+
+		acquire(&wait_lock);
+		acquire(&p->lock);
+
+		if(p->state == UNUSED){
+			release(&p->lock);
+			release(&wait_lock);
+      continue;
+		}
+
+    if(addinfo == 1){
+
+      if(proc_count >= lim){
+        release(&p->lock);
+        release(&wait_lock);
+        return proc_count + 1;
+      }
+
+      pri.state = p->state;
+      pri.pid = p->pid;
+      
+      parent = p->parent;
+      if(parent != 0){
+        safestrcpy(pri.pname, parent->name, sizeof(pri.pname));
+        pri.ppid = parent->pid;
+      }
+      else{
+        pri.ppid = 0;
+      }
+
+      safestrcpy(pri.name, p->name, sizeof(pri.name));
+    }
+
+    release(&p->lock);
+    release(&wait_lock);
+  
+    if(addinfo == 1){
+      if(copyout(
+            myproc()->pagetable,
+            uaddr + proc_count * sizeof(struct procinfo),
+            (char *)&pri,
+            sizeof(pri)) == -1){
+
+        return -1;
+      }
+    }
+
+    proc_count++;
+  }
+	
+	return proc_count; 
 }
