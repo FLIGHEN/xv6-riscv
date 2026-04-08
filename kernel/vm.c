@@ -137,6 +137,151 @@ walkaddr(pagetable_t pagetable, uint64 va)
   return pa;
 }
 
+int
+uvmcheckrange(pagetable_t pagetable, uint64 addr, uint64 len)
+{
+  uint64 start, last;
+  pte_t *pte;
+
+  if(len == 0)
+    return -1;
+
+  if(addr >= MAXVA)
+    return -1;
+
+  if(addr + len < addr)
+    return -1;
+
+  if(addr + len > MAXVA)
+    return -1;
+
+  start = PGROUNDDOWN(addr);
+  last = PGROUNDDOWN(addr + len - 1);
+
+  for(uint64 i = start; i <= last; i += PGSIZE){
+    pte = walk(pagetable, i, 0);
+    if(pte == 0)
+      return -1;
+    if((*pte & PTE_V) == 0)
+      return -1;
+    if((*pte & PTE_U) == 0)
+      return -1;
+  }
+
+  return 0;
+}
+
+int
+uvmclearflags(pagetable_t pagetable, uint64 addr, uint64 len, int flags)
+{
+  uint64 start, last;
+  pte_t *pte;
+
+  if(flags == 0)
+    return -1;
+
+  int allowed = PTE_A | PTE_D;
+  if((flags & ~allowed) != 0)
+    return -1;
+
+  if(uvmcheckrange(pagetable, addr, len) < 0)
+    return -1;
+
+  start = PGROUNDDOWN(addr);
+  last = PGROUNDDOWN(addr + len - 1);
+
+  for(uint64 i = start; i <= last; i += PGSIZE){
+    pte = walk(pagetable, i, 0);
+    if(pte == 0)
+      return -1;
+
+    *pte &= ~flags;
+  }
+
+  sfence_vma();
+  return 0;
+}
+
+int
+uvmcheckflags(pagetable_t pagetable, uint64 addr, uint64 len, int flags)
+{
+  uint64 start, last;
+  pte_t *pte;
+
+  if(flags == 0)
+    return -1;
+
+  int allowed = PTE_A | PTE_D;
+  if((flags & ~allowed) != 0)
+    return -1;
+
+  if(uvmcheckrange(pagetable, addr, len) < 0)
+    return -1;
+
+  start = PGROUNDDOWN(addr);
+  last = PGROUNDDOWN(addr + len - 1);
+
+  for(uint64 i = start; i <= last; i += PGSIZE){
+    pte = walk(pagetable, i, 0);
+    if(pte == 0)
+      return -1;
+
+    if((*pte & flags) != 0)
+      return 1;
+  }
+
+  return 0;
+}
+
+void
+vmprint_indent(int depth)
+{
+  for(int i = 0; i < depth; i++)
+    printf(".........");
+}
+
+void
+pte_flags_to_str(pte_t pte, char *buf)
+{
+  buf[0] = (pte & PTE_R) ? 'R' : '_';
+  buf[1] = (pte & PTE_W) ? 'W' : '_';
+  buf[2] = (pte & PTE_X) ? 'X' : '_';
+  buf[3] = (pte & PTE_U) ? 'U' : '_';
+  buf[4] = (pte & PTE_G) ? 'G' : '_';
+  buf[5] = (pte & PTE_A) ? 'A' : '_';
+  buf[6] = (pte & PTE_D) ? 'D' : '_';
+  buf[7] = '\0';
+}
+
+void
+vmprint_walk(pagetable_t pagetable, int depth)
+{
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+
+    if((pte & PTE_V) == 0)
+      continue;
+
+    char flags[8];
+    pte_flags_to_str(pte, flags);
+
+    vmprint_indent(depth);
+    printf("0x%x -> %p %s\n", i, (void*)PTE2PA(pte), flags);
+
+    if((pte & (PTE_R | PTE_W | PTE_X)) == 0){
+      pagetable_t child = (pagetable_t)PTE2PA(pte);
+      vmprint_walk(child, depth + 1);
+    }
+  }
+}
+
+void
+vmprint(pagetable_t pagetable)
+{
+  printf("PAGETABLE %p\n", pagetable);
+  vmprint_walk(pagetable, 0);
+}
+
 // Create PTEs for virtual addresses starting at va that refer to
 // physical addresses starting at pa.
 // va and size MUST be page-aligned.
