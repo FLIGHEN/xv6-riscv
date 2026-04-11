@@ -14,19 +14,13 @@ char *argv[] = { "sh", 0 };
 
 void
 val_mknod_dev(char* name, int major, int minor){
-  
-  int fd = open(name, O_RDONLY);
-  if(fd < 0)
-    fd = open(name, O_WRONLY);
+  struct stat st;
 
-  if(fd >= 0){
-    close(fd);
+  if(stat(name, &st) >= 0)
     return;
-  }
 
-  if(mknod(name, major, minor) < 0){
+  if(mknod(name, major, minor) < 0)
     fprintf(2, "init: mknod %s failed\n", name);
-  }
 }
 
 int

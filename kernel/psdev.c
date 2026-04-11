@@ -8,9 +8,12 @@
 #include "file.h"
 #include "psdev.h"
 
-struct spinlock psdev_lock;
+struct spinlock psdev_seed_lock;
+struct spinlock nullstat_lock;
+
 uint64 psdev_seed = 123456;
 uint64 nullstat_total = 0;
+static char zero_buf[64] = {0};
 
 uint64
 psdev_rand_next(void)
@@ -22,7 +25,8 @@ psdev_rand_next(void)
 void
 psdevinit(void)
 {
-  initlock(&psdev_lock, "psdev");
+  initlock(&psdev_seed_lock, "psdev_seed");
+  initlock(&nullstat_lock, "nullstat");
   devsw[PSDEVMAJOR].read = psdevread;
   devsw[PSDEVMAJOR].write = psdevwrite;
 }
@@ -38,17 +42,14 @@ psdevread(int minor, int user_dst, uint64 dst, int n)
     return 0;
 
   case PSDEV_ZERO: {
-    char buf[64];
     int total = 0;
-
-    memset(buf, 0, sizeof(buf));
 
     while(total < n){
       int chunk = n - total;
-      if(chunk > sizeof(buf))
-        chunk = sizeof(buf);
+      if(chunk > sizeof(zero_buf))
+        chunk = sizeof(zero_buf);
 
-      if(either_copyout(user_dst, dst + total, buf, chunk) < 0)
+      if(either_copyout(user_dst, dst + total, zero_buf, chunk) < 0)
         return -1;
 
       total += chunk;
@@ -66,11 +67,11 @@ psdevread(int minor, int user_dst, uint64 dst, int n)
       if(chunk > sizeof(buf))
         chunk = sizeof(buf);
 
-      acquire(&psdev_lock);
+      acquire(&psdev_seed_lock);
       for(int i = 0; i < chunk; i++){
         buf[i] = (char)(psdev_rand_next() & 0xFF);
       }
-      release(&psdev_lock);
+      release(&psdev_seed_lock);
 
       if(either_copyout(user_dst, dst + total, buf, chunk) < 0)
         return -1;
@@ -87,9 +88,9 @@ psdevread(int minor, int user_dst, uint64 dst, int n)
     if(n != sizeof(uint64))
       return -1;
 
-    acquire(&psdev_lock);
+    acquire(&nullstat_lock);
     value = nullstat_total;
-    release(&psdev_lock);
+    release(&nullstat_lock);
 
     if(either_copyout(user_dst, dst, (char *)&value, sizeof(uint64)) < 0)
       return -1;
@@ -124,17 +125,17 @@ psdevwrite(int minor, int user_src, uint64 src, int n)
     if(either_copyin((char *)&new_seed, user_src, src, sizeof(uint64)) < 0)
       return -1;
 
-    acquire(&psdev_lock);
+    acquire(&psdev_seed_lock);
     psdev_seed = new_seed;
-    release(&psdev_lock);
+    release(&psdev_seed_lock);
 
     return sizeof(uint64);
   }
 
   case PSDEV_NULLSTAT:
-    acquire(&psdev_lock);
+    acquire(&nullstat_lock);
     nullstat_total += n;
-    release(&psdev_lock);
+    release(&nullstat_lock);
 
     return n;
 
