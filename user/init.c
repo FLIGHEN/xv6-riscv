@@ -8,8 +8,20 @@
 #include "kernel/file.h"
 #include "user/user.h"
 #include "kernel/fcntl.h"
+#include "kernel/psdev.h"
 
 char *argv[] = { "sh", 0 };
+
+void
+val_mknod_dev(char* name, int major, int minor){
+  struct stat st;
+
+  if(stat(name, &st) >= 0)
+    return;
+
+  if(mknod(name, major, minor) < 0)
+    fprintf(2, "init: mknod %s failed\n", name);
+}
 
 int
 main(void)
@@ -22,6 +34,11 @@ main(void)
   }
   dup(0);  // stdout
   dup(0);  // stderr
+
+  val_mknod_dev("null", PSDEVMAJOR, PSDEV_NULL);
+  val_mknod_dev("zero", PSDEVMAJOR, PSDEV_ZERO);
+  val_mknod_dev("urandom", PSDEVMAJOR, PSDEV_URANDOM);
+  val_mknod_dev("nullstat", PSDEVMAJOR, PSDEV_NULLSTAT);
 
   for(;;){
     printf("init: starting sh\n");
