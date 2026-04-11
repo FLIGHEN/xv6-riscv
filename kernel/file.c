@@ -51,6 +51,10 @@ filedup(struct file *f)
   if(f->ref < 1)
     panic("filedup");
   f->ref++;
+
+  if(f->type == FD_MUTEX)
+    printf("filedup mutex: f=%p ref=%d pid=%d\n", f, f->ref, myproc()->pid);
+
   release(&ftable.lock);
   return f;
 }
@@ -60,6 +64,11 @@ void
 fileclose(struct file *f)
 {
   struct file ff;
+
+  if(f->type == FD_MUTEX){
+    printf("started fileclose mutex: f=%p ref=%d pid=%d\n", f, f->ref, myproc()->pid);
+    mutexunlockifheld(f);
+  }
 
   acquire(&ftable.lock);
   if(f->ref < 1)
@@ -79,6 +88,10 @@ fileclose(struct file *f)
     begin_op();
     iput(ff.ip);
     end_op();
+  }
+  else if(ff.type == FD_MUTEX){
+    printf("last fileclose mutex: f=%p pid=%d\n", &ff, myproc()->pid);
+    mutexclose(ff.mutex);
   }
 }
 
@@ -108,6 +121,9 @@ fileread(struct file *f, uint64 addr, int n)
 {
   int r = 0;
 
+  if(f->type == FD_MUTEX)
+    return -1;
+
   if(f->readable == 0)
     return -1;
 
@@ -135,6 +151,9 @@ int
 filewrite(struct file *f, uint64 addr, int n)
 {
   int r, ret = 0;
+
+  if(f->type == FD_MUTEX)
+    return -1;
 
   if(f->writable == 0)
     return -1;
