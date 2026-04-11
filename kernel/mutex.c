@@ -10,8 +10,6 @@
 
 struct mutex {
   struct sleeplock lock;
-  struct spinlock slk;
-  int owner_pid;
 };
 
 int
@@ -31,9 +29,6 @@ mutexalloc(struct file **f)
   }
 
   initsleeplock(&m->lock, "mutex");
-  initlock(&m->slk, "mutex_slk");
-  m->owner_pid = 0;
-
 
   fp->type = FD_MUTEX;
   fp->readable = 0;
@@ -62,28 +57,20 @@ int
 mutexlock(struct file *f)
 {
   struct mutex *m;
-  int pid;
 
   if(f == 0 || f->type != FD_MUTEX)
     return -1;
 
   m = f->mutex;
 
-  pid = myproc()->pid;
-
-  acquire(&m->slk);
-  if(m->owner_pid == pid){
-    release(&m->slk);
+  acquire(&m->lock.lk);
+  if(m->lock.locked && m->lock.pid == myproc()->pid){
+    release(&m->lock.lk);
     return -1;
   }
-  release(&m->slk);
+  release(&m->lock.lk);
 
   acquiresleep(&m->lock);
-
-  acquire(&m->slk);
-  m->owner_pid = pid;
-  release(&m->slk);
-
   return 0;
 }
 
@@ -97,23 +84,14 @@ mutexunlock(struct file *f)
 
   m = f->mutex;
 
-  acquire(&m->slk);
-
-  if(m->owner_pid == 0){
-    release(&m->slk);
+  acquire(&m->lock.lk);
+  if(!m->lock.locked || m->lock.pid != myproc()->pid){
+    release(&m->lock.lk);
     return -1;
   }
-
-  if(m->owner_pid != myproc()->pid){
-    release(&m->slk);
-    return -1;
-  }
-
-  m->owner_pid = 0;
-  release(&m->slk);
+  release(&m->lock.lk);
 
   releasesleep(&m->lock);
-
   return 0;
 }
 
@@ -121,22 +99,19 @@ void
 mutexunlockifheld(struct file *f)
 {
   struct mutex *m;
+  int held;
 
   if(f == 0 || f->type != FD_MUTEX)
     return;
 
   m = f->mutex;
 
-  acquire(&m->slk);
+  acquire(&m->lock.lk);
+  held = m->lock.locked && (m->lock.pid == myproc()->pid);
+  release(&m->lock.lk);
 
-  if(m->owner_pid == myproc()->pid){
-    m->owner_pid = 0;
-    release(&m->slk);
+  if(held)
     releasesleep(&m->lock);
-    return;
-  }
-
-  release(&m->slk);
 }
 
 

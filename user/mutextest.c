@@ -5,11 +5,8 @@ void
 print_line(int pid, int argi, char c)
 {
   printf("%d: ", pid);
-  pause(1);
   printf("arg %d, ", argi);
-  pause(1);
   printf("char '%c'\n", c);
-  pause(1);
 }
 
 void
