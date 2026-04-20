@@ -31,6 +31,8 @@ clear_and_report(const char *name, void *addr, int len)
 {
   int ret = pgclear_ad(addr, len, FLAG_AD);
   printf("pgclear_ad(%s) = %d\n\n", name, ret);
+  pgtprint();
+  printf("\n");
 }
 
 void

@@ -129,9 +129,6 @@ sys_pgclear_ad(void)
   argint(2, &flags);
 
   ret = uvmclearflags(myproc()->pagetable, addr, len, flags);
-  printf("inside sys_pgclear_ad, ret = %d\n", ret);
-  printf("~~~sys page table after clear = %d~~~\n", ret);
-  vmprint(myproc()->pagetable);
 
   return ret;
 }
